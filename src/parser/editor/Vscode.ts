@@ -27,10 +27,19 @@ const HOMEPAGE: string = 'https://code.visualstudio.com/'
 
 export class VscodeProjectItemImpl extends DatetimeProjectItemImpl {}
 
-const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindows: boolean, icon: string, executor: string, sortByAccessTime: boolean | undefined) => Promise<Array<VscodeProjectItemImpl>> = async (entries, context, openInNew, isWindows, defaultIcon, executor, sortByAccessTime) => {
+const resolveExecutor = (executor: string, isMacOs: boolean): string => {
+    const parsed = parse(normalize(executor))
+    if (isMacOs && parsed.base === 'Code' && parsed.dir.endsWith(join('Contents', 'MacOS'))) {
+        return join(parsed.dir, '..', 'Resources', 'app', 'bin', 'code')
+    }
+    return executor
+}
+
+const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindows: boolean, isMacOs: boolean, icon: string, executor: string, sortByAccessTime: boolean | undefined) => Promise<Array<VscodeProjectItemImpl>> = async (entries, context, openInNew, isWindows, isMacOs, defaultIcon, executor, sortByAccessTime) => {
     let items: Array<VscodeProjectItemImpl> = []
     if (!isNil(entries)) {
         let args = openInNew ? '-n' : ''
+        const resolvedExecutor = resolveExecutor(executor, isMacOs)
         for (let element of entries) {
             let folderUri = element['folderUri'],
                 fileUri = element['fileUri'],
@@ -62,14 +71,14 @@ const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindo
                 icon: context.enableGetFileIcon ? utools.getFileIcon(path) : defaultIcon,
             })
 
-            let commandText = `"${executor}" ${args} "${path}"`
+            let commandText = `"${resolvedExecutor}" ${args} "${path}"`
 
             // 对 remote folder 进行处理
             if (startWith(uri, 'vscode-remote')) {
                 let label = element['label'] ?? uriParsed
                 exists = true
                 description = label
-                commandText = `"${executor}" --folder-uri "${uriParsed}"`
+                commandText = `"${resolvedExecutor}" --folder-uri "${uriParsed}"`
             }
 
             let accessTime = 0
@@ -103,6 +112,7 @@ const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindo
 export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl<VscodeProjectItemImpl> {
     private openInNew: boolean = false
     private isWindows: boolean = utools.isWindows()
+    private isMacOs: boolean = utools.isMacOS()
 
     constructor() {
         super(
@@ -149,7 +159,7 @@ export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl
             let content = buffer.toString()
             let storage = JSON.parse(content)
             let entries = storage?.openedPathsList?.entries
-            items.push(...(await parseEntries(entries, context, this.openInNew, this.isWindows, this.icon, this.executor, undefined)))
+            items.push(...(await parseEntries(entries, context, this.openInNew, this.isWindows, this.isMacOs, this.icon, this.executor, undefined)))
         }
         return items
     }
@@ -179,6 +189,7 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
     private openInNew: boolean = false
     private sortByAccessTime: boolean = false
     private isWindows: boolean = utools.isWindows()
+    private isMacOs: boolean = utools.isMacOS()
     private databaseSignature: string = ''
     private hasLoadedDatabase: boolean = false
 
@@ -251,7 +262,12 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
                 return `${path}:missing`
             }
         }))
-        const signature = signatures.join('|')
+        const signature = [
+            ...signatures,
+            `executor:${this.executor}`,
+            `openInNew:${this.openInNew}`,
+            `sortByAccessTime:${this.sortByAccessTime}`,
+        ].join('|')
         const changed = !this.hasLoadedDatabase || signature !== this.databaseSignature
         this.hasLoadedDatabase = true
         this.databaseSignature = signature
@@ -269,7 +285,7 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
                     let row = results[0]
                     let source = row['result'] as string
                     if (!isEmpty(source)) {
-                        return await parseEntries(JSON.parse(source)['entries'], context, this.openInNew, this.isWindows, this.icon, this.executor, this.sortByAccessTime)
+                        return await parseEntries(JSON.parse(source)['entries'], context, this.openInNew, this.isWindows, this.isMacOs, this.icon, this.executor, this.sortByAccessTime)
                     }
                 }
             } catch (error) {
