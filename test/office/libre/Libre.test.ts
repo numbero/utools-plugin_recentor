@@ -3,7 +3,7 @@ import {Context} from '../../../src/Context'
 
 test('libraProjectItems', async () => {
     let app = new LibreOfficeApplicationImpl()
-    app.config = `${__dirname}/registrymodifications.xcu`
+    Object.assign(app, {config: `${__dirname}/registrymodifications.xcu`})
 
     let items = await app.generateProjectItems(Context.get())
     expect(items.length).toEqual(6)

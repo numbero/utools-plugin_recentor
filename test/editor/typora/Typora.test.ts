@@ -3,7 +3,7 @@ import {Context} from '../../../src/Context'
 
 test('typoraProjectItems', async () => {
     let app = new TyporaApplicationImpl()
-    app.config = `${__dirname}/history.data`
+    Object.assign(app, {config: `${__dirname}/history.data`})
 
     let items = await app.generateProjectItems(Context.get())
     expect(items.length).toEqual(4)

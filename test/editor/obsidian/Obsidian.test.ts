@@ -3,7 +3,7 @@ import {ObsidianApplicationImpl} from '../../../src/parser/notes/Obsidian'
 
 test('obsidianProjectItems', async () => {
     let app = new ObsidianApplicationImpl()
-    app.config = `${__dirname}/obsidian.json`
+    Object.assign(app, {config: `${__dirname}/obsidian.json`})
 
     let items = await app.generateProjectItems(Context.get())
     expect(items.length).toEqual(3)

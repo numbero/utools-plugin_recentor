@@ -86,8 +86,13 @@
 
 ### Visual Studio Code
 
-自`1.46.0`起，Visual Studio Code 将历史记录数据从`storage.json`中移除，转移到全局数据库中，所以`1.46.0`
-以上版本的配置文件需要设置为`/Users/xxx/Library/Application Support/Code/User/globalStorage/state.vscdb`，在插件里，两种读取方式将分别适配，显示为两个适配。
+Visual Studio Code 的历史记录位置随版本变化：
+
+- 旧版本使用 `storage.json`；
+- `1.64.0` 至 `1.117.x` 默认使用 `User/globalStorage/state.vscdb`；
+- 自 `1.118.0` 起，历史记录迁移到用户主目录下的 `.vscode-shared/sharedStorage/state.vscdb`。
+
+插件会优先读取新的共享数据库，并自动回退到已配置路径和旧版数据库。使用 `--shared-data-dir` 指定过自定义共享目录的用户，仍可在插件设置中手动选择对应的 `state.vscdb`。相关变更可参考 [VS Code 工作区历史实现](https://github.com/microsoft/vscode/blob/main/src/vs/platform/workspaces/electron-main/workspacesHistoryMainService.ts) 和 [上游兼容性问题说明](https://github.com/microsoft/PowerToys/issues/47445)。
 
 ### JetBrains
 

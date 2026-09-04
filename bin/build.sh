@@ -1,59 +1,42 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-dist='dist'
+set -euo pipefail
 
-rm -rf $dist
-mkdir $dist
-
-tsc --outDir $dist
-
-# 获取项目根目录
-root_path=`pwd`
-echo $root_path
-
+root_path=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+dist_path="${root_path}/dist"
 bin_path="${root_path}/bin"
+temp_path="${root_path}/temp"
 
-# 生成版本号
-node ${bin_path}/build-version.js $root_path
+cleanup() {
+  rm -rf "${temp_path}"
+}
+trap cleanup EXIT
 
-# 生成 icon
-node ${bin_path}/build-icon.js $root_path
+rm -rf "${dist_path}"
+mkdir -p "${dist_path}"
 
-cp -r public/* $dist
+"${root_path}/node_modules/.bin/tsc" --outDir "${dist_path}"
+
+# 生成版本号和图标
+node "${bin_path}/build-version.js" "${root_path}"
+node "${bin_path}/build-icon.js" "${root_path}"
+
+cp -R "${root_path}/public/." "${dist_path}/"
 
 # 生成 stylus -> css 的文件到 dist 文件夹中
-node ${bin_path}/build-css.js $root_path
+node "${bin_path}/build-css.js" "${root_path}"
 
-temp_path="${root_path}/temp"
-mkdir $temp_path
-cd $temp_path
-packageJson='{
-                "name": "utools-recent-projects-dependencies",
-                "version": "1.0.0",
-                "license": "MIT",
-                "dependencies": {
-                  "bplist-parser": "^0.3.2",
-                  "licia": "^1.37.0",
-                  "mousetrap": "^1.6.5",
-                  "nano-jsx": "^0.0.34",
-                  "nanobar": "^0.4.2",
-                  "pinyin-pro": "^3.11.0",
-                  "sql.js": "^1.8.0",
-                  "string-comparison": "^1.1.0",
-                  "toastify-js": "^1.12.0",
-                  "winreg": "^1.2.4"
-                }
-              }'
-echo $packageJson > package.json
-# 优先使用离线安装, 加快调试速度
-yarn install --offline
-# yarn install
+# uTools 要求 preload 的第三方 Node.js 依赖与源码一同放在产物中。
+mkdir -p "${temp_path}"
+node "${bin_path}/build-dependencies.js" "${root_path}" "${temp_path}"
+(
+  cd "${temp_path}"
+  npm install --omit=dev --ignore-scripts --prefer-offline --no-audit --no-fund
+)
 
-node ${bin_path}/build-clean.js $root_path
+node "${bin_path}/build-clean.js" "${root_path}"
 
-rm -rf "${temp_path}/node_modules/winreg/lib/registry.js"
-cp "${root_path}/lib/winreg/lib/registry.js" "${temp_path}/node_modules/winreg/lib"
+rm -f "${temp_path}/node_modules/winreg/lib/registry.js"
+cp "${root_path}/lib/winreg/lib/registry.js" "${temp_path}/node_modules/winreg/lib/registry.js"
 
-cd $root_path
-cp -r "${temp_path}/node_modules" $dist/
-rm -rf $temp_path
+cp -R "${temp_path}/node_modules" "${dist_path}/"

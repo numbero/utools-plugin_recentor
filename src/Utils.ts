@@ -205,7 +205,7 @@ export const initLanguage: (context?: Context) => void = context => {
 export const initShortcut: (context?: Context) => void = context => {
     let shortcut = 'ctrl'
     if (platformFromUtools() == Platform.darwin) {
-        shortcut = 'command+s'
+        shortcut = 'command'
     }
     Mousetrap.bind(`${shortcut}+c`, e => {
         let content = document.querySelector('#root .list .list-item-selected .list-item-description')?.textContent
