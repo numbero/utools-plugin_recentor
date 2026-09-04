@@ -98,3 +98,20 @@ test.each([
 
     expect(items[0].command.command).toBe(`/usr/bin/open -a '${appPath}' '/tmp/current-project'`)
 })
+
+test.each([
+    ['legacy history', () => new VscodeApplicationImpl()],
+    ['current history', () => new Vscode1640ApplicationImpl()],
+])('only shows the new-window setting for supported platforms in %s', (_description, createApplication) => {
+    const nativeId = 'native-id'
+    const app = createApplication()
+
+    const macSettings = app.generateSettingItems(Context.get(), nativeId)
+
+    expect(macSettings.map(setting => setting.id)).not.toContain(app.openInNewId(nativeId))
+
+    Object.assign(app, {isMacOs: false})
+    const nonMacSettings = app.generateSettingItems(Context.get(), nativeId)
+
+    expect(nonMacSettings.map(setting => setting.id)).toContain(app.openInNewId(nativeId))
+})

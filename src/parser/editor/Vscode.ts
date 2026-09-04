@@ -174,18 +174,18 @@ export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl
 
     override update(nativeId: string) {
         super.update(nativeId)
-        this.openInNew = utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false
+        this.openInNew = !this.isMacOs && (utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false)
     }
 
     override generateSettingItems(context: Context, nativeId: string): Array<SettingItem> {
-        let superSettings = super.generateSettingItems(context, nativeId)
-        superSettings.splice(0, 0, new SwitchSettingItem(
+        const superSettings = super.generateSettingItems(context, nativeId)
+        if (this.isMacOs) return superSettings
+        return [new SwitchSettingItem(
             this.openInNewId(nativeId),
             i18n.t(sentenceKey.openInNew),
             this.openInNew,
             i18n.t(sentenceKey.openInNewDesc),
-        ))
-        return superSettings
+        ), ...superSettings]
     }
 }
 
@@ -310,25 +310,27 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
 
     override update(nativeId: string) {
         super.update(nativeId)
-        this.openInNew = utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false
+        this.openInNew = !this.isMacOs && (utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false)
         this.sortByAccessTime = utools.dbStorage.getItem(this.sortByAccessTimeId(nativeId)) ?? false
     }
 
     override generateSettingItems(context: Context, nativeId: string): Array<SettingItem> {
-        let superSettings = super.generateSettingItems(context, nativeId)
-        superSettings.splice(0, 0, new SwitchSettingItem(
-            this.openInNewId(nativeId),
-            i18n.t(sentenceKey.openInNew),
-            this.openInNew,
-            i18n.t(sentenceKey.openInNewDesc),
-        ))
-        superSettings.splice(1, 0, new SwitchSettingItem(
+        const superSettings = super.generateSettingItems(context, nativeId)
+        const applicationSettings: SettingItem[] = [new SwitchSettingItem(
             this.sortByAccessTimeId(nativeId),
             i18n.t(sentenceKey.sortByAccessTime),
             this.sortByAccessTime,
             i18n.t(sentenceKey.sortByAccessTimeDesc),
-        ))
-        return superSettings
+        )]
+        if (!this.isMacOs) {
+            applicationSettings.unshift(new SwitchSettingItem(
+                this.openInNewId(nativeId),
+                i18n.t(sentenceKey.openInNew),
+                this.openInNew,
+                i18n.t(sentenceKey.openInNewDesc),
+            ))
+        }
+        return [...applicationSettings, ...superSettings]
     }
 }
 
