@@ -27,19 +27,19 @@ const HOMEPAGE: string = 'https://code.visualstudio.com/'
 
 export class VscodeProjectItemImpl extends DatetimeProjectItemImpl {}
 
-const resolveExecutor = (executor: string, isMacOs: boolean): string => {
-    const parsed = parse(normalize(executor))
-    if (isMacOs && parsed.base === 'Code' && parsed.dir.endsWith(join('Contents', 'MacOS'))) {
-        return join(parsed.dir, '..', 'Resources', 'app', 'bin', 'code')
-    }
-    return executor
+const shellArgument = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`
+
+const resolveMacApplication = (executor: string, isMacOs: boolean): string | undefined => {
+    if (!isMacOs) return undefined
+    const match = normalize(executor).match(/^(.+\.app)(?:\/|$)/)
+    return match?.[1]
 }
 
 const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindows: boolean, isMacOs: boolean, icon: string, executor: string, sortByAccessTime: boolean | undefined) => Promise<Array<VscodeProjectItemImpl>> = async (entries, context, openInNew, isWindows, isMacOs, defaultIcon, executor, sortByAccessTime) => {
     let items: Array<VscodeProjectItemImpl> = []
     if (!isNil(entries)) {
         let args = openInNew ? '-n' : ''
-        const resolvedExecutor = resolveExecutor(executor, isMacOs)
+        const macApplication = resolveMacApplication(executor, isMacOs)
         for (let element of entries) {
             let folderUri = element['folderUri'],
                 fileUri = element['fileUri'],
@@ -71,14 +71,18 @@ const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindo
                 icon: context.enableGetFileIcon ? utools.getFileIcon(path) : defaultIcon,
             })
 
-            let commandText = `"${resolvedExecutor}" ${args} "${path}"`
+            let commandText = macApplication === undefined
+                ? `"${executor}" ${args} "${path}"`
+                : `/usr/bin/open -a ${shellArgument(macApplication)} ${shellArgument(path)}`
 
             // 对 remote folder 进行处理
             if (startWith(uri, 'vscode-remote')) {
                 let label = element['label'] ?? uriParsed
                 exists = true
                 description = label
-                commandText = `"${resolvedExecutor}" --folder-uri "${uriParsed}"`
+                commandText = macApplication === undefined
+                    ? `"${executor}" --folder-uri "${uriParsed}"`
+                    : `/usr/bin/open -a ${shellArgument(macApplication)} ${shellArgument(uriParsed)}`
             }
 
             let accessTime = 0

@@ -78,7 +78,10 @@ test('refreshes cached commands when the VS Code executor changes', async () => 
     expect(refreshedItems[0].command.command).toContain('/new/code')
 })
 
-test('uses the CLI launcher when the macOS app executable is configured', async () => {
+test.each([
+    ['app executable', (...parts: string[]) => join(...parts, 'Contents', 'MacOS', 'Code')],
+    ['CLI launcher', (...parts: string[]) => join(...parts, 'Contents', 'Resources', 'app', 'bin', 'code')],
+])('uses macOS Launch Services when the %s is configured', async (_description, executorPath) => {
     const home = mkdtempSync(join(tmpdir(), 'vscode-macos-executor-'))
     temporaryPaths.push(home)
     jest.spyOn(utools, 'getPath').mockReturnValue(home)
@@ -88,11 +91,10 @@ test('uses the CLI launcher when the macOS app executable is configured', async 
     const appPath = join(home, 'Visual Studio Code.app')
     Object.assign(app, {
         config: sharedDatabase,
-        executor: join(appPath, 'Contents', 'MacOS', 'Code'),
+        executor: executorPath(appPath),
     })
 
     const items = await app.generateProjectItems(Context.get())
 
-    expect(items[0].command.command).toContain(join(appPath, 'Contents', 'Resources', 'app', 'bin', 'code'))
-    expect(items[0].command.command).not.toContain(join('Contents', 'MacOS', 'Code'))
+    expect(items[0].command.command).toBe(`/usr/bin/open -a '${appPath}' '/tmp/current-project'`)
 })
