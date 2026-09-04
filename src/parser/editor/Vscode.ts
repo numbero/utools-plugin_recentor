@@ -1,10 +1,12 @@
+import {existsSync} from 'fs'
 import {readFile, stat} from 'fs/promises'
 import {isEmpty, isNil, startWith, unique, Url} from 'licia'
-import {parse} from 'path'
+import {join, normalize, parse} from 'path'
 import {Context} from '../../Context'
 import {i18n, sentenceKey} from '../../i18n'
 import {
     ApplicationCacheConfigAndExecutorImpl,
+    ApplicationConfigState,
     ApplicationImpl,
     DatetimeProjectItemImpl,
     GROUP_EDITOR,
@@ -177,6 +179,8 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
     private openInNew: boolean = false
     private sortByAccessTime: boolean = false
     private isWindows: boolean = utools.isWindows()
+    private databaseSignature: string = ''
+    private hasLoadedDatabase: boolean = false
 
     constructor() {
         super(
@@ -194,11 +198,26 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
     }
 
     override defaultConfigPath(): string {
+        return join(utools.getPath('home'), '.vscode-shared', 'sharedStorage', 'state.vscdb')
+    }
+
+    private legacyConfigPath(): string {
+        const home = utools.getPath('home')
         return generateStringByOS({
-            win32: `C:\\Users\\${systemUser()}\\AppData\\Roaming\\Code\\User\\globalStorage\\state.vscdb`,
-            darwin: `/Users/${systemUser()}/Library/Application Support/Code/User/globalStorage/state.vscdb`,
-            linux: `/home/${systemUser()}/.config/Code/User/globalStorage/state.vscdb`,
+            win32: join(home, 'AppData', 'Roaming', 'Code', 'User', 'globalStorage', 'state.vscdb'),
+            darwin: join(home, 'Library', 'Application Support', 'Code', 'User', 'globalStorage', 'state.vscdb'),
+            linux: join(home, '.config', 'Code', 'User', 'globalStorage', 'state.vscdb'),
         })
+    }
+
+    private databasePaths(): string[] {
+        const shared = this.defaultConfigPath()
+        const legacy = this.legacyConfigPath()
+        const configuredIsLegacy = !isEmpty(this.config) && normalize(this.config) === normalize(legacy)
+        const paths = configuredIsLegacy
+            ? [shared, this.config, legacy]
+            : [this.config, shared, legacy]
+        return unique(paths.filter(path => !isEmpty(path)))
     }
 
     override defaultExecutorPath(): string {
@@ -216,16 +235,48 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
         }
     }
 
+    override async isFinishConfig(context: Context): Promise<ApplicationConfigState> {
+        if (this.disEnable()) return ApplicationConfigState.empty
+        if (isEmpty(this.executor)) return ApplicationConfigState.undone
+        if (this.databasePaths().some(path => existsSync(path))) return ApplicationConfigState.done
+        return isEmpty(this.config) ? ApplicationConfigState.undone : ApplicationConfigState.error
+    }
+
+    override async isNew(): Promise<boolean> {
+        const signatures = await Promise.all(this.databasePaths().flatMap(path => [path, `${path}-wal`]).map(async path => {
+            try {
+                const info = await stat(path)
+                return `${path}:${info.size}:${info.mtimeMs}`
+            } catch {
+                return `${path}:missing`
+            }
+        }))
+        const signature = signatures.join('|')
+        const changed = !this.hasLoadedDatabase || signature !== this.databaseSignature
+        this.hasLoadedDatabase = true
+        this.databaseSignature = signature
+        return changed
+    }
+
     async generateCacheProjectItems(context: Context): Promise<Array<VscodeProjectItemImpl>> {
-        // language=SQLite
-        let results = await queryFromSqlite(this.config, 'select value as result from ItemTable where key = \'history.recentlyOpenedPathsList\'')
-        if (!isEmpty(results)) {
-            let row = results[0]
-            let source = row['result'] as string
-            if (!isEmpty(source)) {
-                return await parseEntries(JSON.parse(source)['entries'], context, this.openInNew, this.isWindows, this.icon, this.executor, this.sortByAccessTime)
+        let lastError: unknown
+        for (const databasePath of this.databasePaths()) {
+            if (!existsSync(databasePath)) continue
+            try {
+                // language=SQLite
+                let results = await queryFromSqlite(databasePath, 'select value as result from ItemTable where key = \'history.recentlyOpenedPathsList\'')
+                if (!isEmpty(results)) {
+                    let row = results[0]
+                    let source = row['result'] as string
+                    if (!isEmpty(source)) {
+                        return await parseEntries(JSON.parse(source)['entries'], context, this.openInNew, this.isWindows, this.icon, this.executor, this.sortByAccessTime)
+                    }
+                }
+            } catch (error) {
+                lastError = error
             }
         }
+        if (!isNil(lastError)) throw lastError
         return []
     }
 

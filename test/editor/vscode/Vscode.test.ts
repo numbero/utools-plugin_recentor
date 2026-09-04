@@ -1,5 +1,31 @@
-import {VscodeApplicationImpl} from '../../../src/parser/editor/Vscode'
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'fs'
+import {tmpdir} from 'os'
+import {dirname, join} from 'path'
+import sqlInit from 'sql.js'
+import {Vscode1640ApplicationImpl, VscodeApplicationImpl} from '../../../src/parser/editor/Vscode'
 import {Context} from '../../../src/Context'
+
+const temporaryPaths: string[] = []
+
+const writeStateDatabase = async (path: string, entries?: object[]) => {
+    const SQL = await sqlInit()
+    const database = new SQL.Database()
+    database.run('create table ItemTable (key text unique on conflict replace, value blob)')
+    if (entries) {
+        database.run(
+            'insert into ItemTable (key, value) values (?, ?)',
+            ['history.recentlyOpenedPathsList', JSON.stringify({entries})],
+        )
+    }
+    mkdirSync(dirname(path), {recursive: true})
+    writeFileSync(path, database.export())
+    database.close()
+}
+
+afterEach(() => {
+    jest.restoreAllMocks()
+    temporaryPaths.splice(0).forEach(path => rmSync(path, {recursive: true, force: true}))
+})
 
 test('vscodeProjectItems', async () => {
     let app = new VscodeApplicationImpl()
@@ -11,4 +37,26 @@ test('vscodeProjectItems', async () => {
     expect(items[1].title).toEqual('notes')
     expect(items[2].title).toEqual('notes-server')
     expect(items[3].title).toEqual('notes')
+})
+
+test('reads recent projects from the VS Code 1.118 shared storage database', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'vscode-history-'))
+    temporaryPaths.push(home)
+    jest.spyOn(utools, 'getPath').mockReturnValue(home)
+    const legacyDatabase = join(home, 'Library/Application Support/Code/User/globalStorage/state.vscdb')
+    const sharedDatabase = join(home, '.vscode-shared/sharedStorage/state.vscdb')
+    await writeStateDatabase(legacyDatabase)
+    await writeStateDatabase(sharedDatabase, [{folderUri: 'file:///tmp/current-project'}])
+    const app = new Vscode1640ApplicationImpl()
+    Object.assign(app, {config: legacyDatabase, executor: '/usr/local/bin/code'})
+
+    const items = await app.generateProjectItems(Context.get())
+
+    expect(items.map(item => item.title)).toEqual(['current-project'])
+    expect(app.defaultConfigPath()).toBe(sharedDatabase)
+
+    await writeStateDatabase(sharedDatabase, [{folderUri: 'file:///tmp/current-project-renamed'}])
+    const updatedItems = await app.generateProjectItems(Context.get())
+
+    expect(updatedItems.map(item => item.title)).toEqual(['current-project-renamed'])
 })
