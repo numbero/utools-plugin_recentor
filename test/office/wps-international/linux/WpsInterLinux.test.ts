@@ -3,7 +3,7 @@ import {Context} from '../../../../src/Context'
 
 test('wpsLinuxProjectItems', async () => {
     let app = new WpsLinuxInternationalApplicationImpl()
-    app.config = `${__dirname}/Office.conf`
+    Object.assign(app, {config: `${__dirname}/Office.conf`})
 
     let items = await app.generateProjectItems(Context.get())
     expect(items.length).toEqual(3)

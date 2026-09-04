@@ -3,7 +3,7 @@
     "noImplicitAny": false,
     "strict": true,
     "module": "CommonJS",
-    "target": "ESNext",
+    "target": "ES2021",
     "noImplicitOverride": true,
     "downlevelIteration": true,
     "moduleResolution": "Node",

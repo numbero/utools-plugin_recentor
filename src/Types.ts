@@ -5,7 +5,7 @@ import {Context} from './Context'
 import {i18n, sentenceKey} from './i18n'
 import {getName, initLanguage, initShortcut, platformFromUtools} from './Utils'
 import {signCalculateAsync} from './utils/files/SignCalculate'
-import {errorNotify, infoNotify} from './utils/log/NotificationLog'
+import {errorNotify} from './utils/log/NotificationLog'
 import {existsToRead, nonExistsToRead} from './utils/promise/FsPromise'
 
 /**
@@ -127,12 +127,14 @@ export class ElectronPathExecutor implements Executor {
         }
         shell.openPath(this.command)
             .then(message => {
-                if (isEmpty(message) && context.enableOutPluginImmediately) {
-                    utools.hideMainWindow()
-                    utools.outPlugin()
-                } else {
-                    infoNotify(context, message)
+                if (isEmpty(message)) {
+                    if (context.enableOutPluginImmediately) {
+                        utools.hideMainWindow()
+                        utools.outPlugin()
+                    }
+                    return
                 }
+                errorNotify(context, message)
             })
             .catch(error => {
                 errorNotify(context, error?.message ?? i18n.t(sentenceKey.unknownError))
@@ -226,7 +228,7 @@ export abstract class DatetimeProjectItemImpl extends ProjectItemImpl {
 /**
  * callbackSetList
  */
-export type Callback<I extends Item> = (items: Array<I>) => never
+export type Callback<I extends Item> = (items: Array<I>) => void
 
 export interface Action {
     code: string
@@ -301,6 +303,7 @@ export abstract class ProjectArgsImpl extends ArgsImpl<ProjectItemImpl> {
      * 缓存查询到的历史记录, 方便搜索时过滤
      */
     protected projectItemCache: Array<ProjectItemImpl> = []
+    private projectItemRequestId = 0
 
     /**
      * 获取历史记录
@@ -310,32 +313,43 @@ export abstract class ProjectArgsImpl extends ArgsImpl<ProjectItemImpl> {
      * @param nativeId 本机识别码
      */
     getProjectItems: (nativeId: string) => Promise<Array<ProjectItemImpl>> = async nativeId => {
+        const requestId = ++this.projectItemRequestId
         this.updateApplications(nativeId)
         let platform = platformFromUtools()
         let context = Context.get()
-        await Promise.allSettled(
-            this.applications
-                .map(async app => {
+        let results = await Promise.all(
+            this.applications.map(async app => {
+                try {
                     let finish = await app.isFinishConfig(context)
                     // 平台不适配的, 配置没有填完的, 都要被过滤掉
                     if (app.enabled && contain(app.platform, platform) && finish === ApplicationConfigState.done) {
                         return (await app.generateProjectItems(context))
                             .filter(p => context.enableFilterNonExistsFiles ? p.exists : true)
-                            .forEach(p => this.projectItemCache.push(p))
                     } else if (finish === ApplicationConfigState.error) {
                         errorNotify(context, `${getName(app.name)} ${i18n.t(sentenceKey.getProjectsError)}`)
-                        return
                     }
-                })
-                .filter(p => !isNil(p)),
+                } catch (error) {
+                    let message = error instanceof Error ? error.message : `${error}`
+                    errorNotify(context, `${getName(app.name)} ${i18n.t(sentenceKey.getProjectsError)}: ${message}`)
+                }
+                return []
+            }),
         )
-        return this.projectItemCache.sort(this.compare)
+        const projectItems = results.reduce<Array<ProjectItemImpl>>((items, result) => {
+            items.push(...result)
+            return items
+        }, []).sort(this.compare)
+        if (requestId === this.projectItemRequestId) {
+            this.projectItemCache = projectItems
+        }
+        return projectItems
     }
 
     /**
      * 清理历史记录缓存, 防止和下一次使用时混杂在一起
      */
     clearCache() {
+        this.projectItemRequestId++
         this.projectItemCache = []
     }
 }

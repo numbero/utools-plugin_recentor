@@ -347,7 +347,7 @@
       "explain": "快速打开我的 LibreOffice 项目",
       "icon": "icon/libreoffice.png",
       "cmds": [
-        "office",
+        "libreoffice",
         "LibreOffice Projects",
         "我的 LibreOffice 项目",
         {

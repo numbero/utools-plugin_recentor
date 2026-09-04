@@ -13,7 +13,12 @@ global.utools = {
     isWindows: () => false,
     isMacOS: () => true,
     isDev: () => true,
+    isDarkColors: () => false,
     getNativeId: () => nativeId,
+    copyText: jest.fn(),
+    hideMainWindow: jest.fn(),
+    outPlugin: jest.fn(),
+    showNotification: jest.fn(),
     dbStorage: {
         getItem(key) {
             return store[key]

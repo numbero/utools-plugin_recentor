@@ -3,7 +3,7 @@ import {Context} from '../../../src/Context'
 
 test('vscodeProjectItems', async () => {
     let app = new VscodeApplicationImpl()
-    app.config = `${__dirname}/storage.json`
+    Object.assign(app, {config: `${__dirname}/storage.json`})
 
     let items = await app.generateProjectItems(Context.get())
     expect(items.length).toEqual(4)

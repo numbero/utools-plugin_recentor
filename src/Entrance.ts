@@ -34,9 +34,11 @@ let nanoBar
 
 export class AllProjectArgs extends ProjectArgsImpl {
     placeholder = i18n.t(sentenceKey.placeholder)
+    private requestId = 0
 
     override enter(action: Action, callback: Callback<ProjectItemImpl>): void {
         super.enter(action, callback)
+        const requestId = ++this.requestId
         if (isNil(nanoBar)) {
             nanoBar = new NanoBar()
             S('.nanobar').css('height', '2px')
@@ -49,6 +51,7 @@ export class AllProjectArgs extends ProjectArgsImpl {
         nanoBar.go(40)
         this.getProjectItems(utools.getNativeId())
             .then(result => {
+                if (requestId !== this.requestId) return
                 nanoBar.go(100)
                 if (isEmpty(result)) {
                     callback([emptyTips()])
@@ -57,12 +60,14 @@ export class AllProjectArgs extends ProjectArgsImpl {
                 }
             })
             .catch(error => {
+                if (requestId !== this.requestId) return
                 S('.nanobar .bar').css('background', '#ff2929')
                 S('.nanobar .bar').css('box-shadow', '0 0 10px #ff2929')
                 nanoBar.go(100)
 
-                errorNotify(this.context, error)
-                utools.copyText(error.message)
+                const message = error instanceof Error ? error.message : `${error}`
+                errorNotify(this.context, message)
+                utools.copyText(message)
                 utools.showNotification(i18n.t(sentenceKey.errorInfoToClipboard))
             })
     }

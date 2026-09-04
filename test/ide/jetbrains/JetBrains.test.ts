@@ -3,7 +3,7 @@ import {JetBrainsApplicationImpl} from '../../../src/parser/ide/JetBrains'
 
 test('jetBrainsProjectItems', async () => {
     let app = new JetBrainsApplicationImpl('test', 'Test', '', '')
-    app.config = `${__dirname}/recentProjects.xml`
+    Object.assign(app, {config: `${__dirname}/recentProjects.xml`})
 
     let items = await app.generateProjectItems(Context.get())
     expect(items.length).toEqual(3)
