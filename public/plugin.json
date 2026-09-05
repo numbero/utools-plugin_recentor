@@ -444,7 +444,7 @@
     {
       "code": "claude-sessions",
       "explain": "查找 Claude Code 会话并复制 Session ID",
-      "icon": "icon/claude.png",
+      "icon": "icon/claude-spark.png",
       "cmds": [
         "claude"
       ]

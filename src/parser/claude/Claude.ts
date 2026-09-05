@@ -31,7 +31,7 @@ export class ClaudeApplication extends ApplicationConfigImpl<DatetimeProjectItem
     private configuredPath = ''
 
     constructor() {
-        super('claude-sessions', 'Claude Code', 'https://code.claude.com', 'icon/claude.png',
+        super('claude-sessions', 'Claude Code', 'https://code.claude.com', 'icon/claude-spark.png',
             'claude', PLATFORM_ALL, GROUP_EDITOR, () => i18n.t(sentenceKey.claudeDescription), false, '.claude')
     }
 
