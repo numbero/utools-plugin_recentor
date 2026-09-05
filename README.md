@@ -94,12 +94,17 @@ Visual Studio Code 的历史记录位置随版本变化：
 
 插件会优先读取新的共享数据库，并自动回退到已配置路径和旧版数据库。使用 `--shared-data-dir` 指定过自定义共享目录的用户，仍可在插件设置中手动选择对应的 `state.vscdb`。相关变更可参考 [VS Code 工作区历史实现](https://github.com/microsoft/vscode/blob/main/src/vs/platform/workspaces/electron-main/workspacesHistoryMainService.ts) 和 [上游兼容性问题说明](https://github.com/microsoft/PowerToys/issues/47445)。
 
-macOS 上，可执行程序路径决定启动方式：
+macOS 上必须选择 **VS Code 官方 CLI 文件**，不再支持 `open -a` 或 App 启动兼容模式。标准安装的正确路径是：
 
-- `/Applications/Visual Studio Code.app`：使用普通 `open -a`，窗口行为由 VS Code 决定，因此不显示「新窗口打开」选项。旧配置指向 `Contents/MacOS/Code` 时也使用此兼容方式。
-- `/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code` 或已安装的 `/usr/local/bin/code`：使用官方 CLI。「新窗口打开」启用时传入 `--new-window`，关闭时传入 `--reuse-window`；远程文件夹使用 `--folder-uri`。
+```text
+/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code
+```
 
-CLI 不依赖交互式登录 Shell，也不会修改全局环境变量。如果 CLI 在当前系统上仍出现启动错误，可把路径改为 `.app` 保留本地项目的兼容启动方式，无需重装或修改应用签名。修改配置后重新进入插件。
+在插件设置中点击「VS Code 官方 CLI 路径」，在文件选择器里按 `⌘⇧G`，粘贴上述完整路径并选择 `code` 文件。如果应用安装在其他目录，调整 `.app` 前面的路径，保持包内的 `Contents/Resources/app/bin/code` 不变。
+
+不要选择 `/Applications/Visual Studio Code.app` 或 `…/Contents/MacOS/Code`，也不要填写裸命令 `code`、包含引号的 Shell 命令或附加参数。旧的 App 配置需要手动改为 CLI 文件路径，插件不会再自动转换或降级。`/usr/local/bin/code` 仅在它是指向上述官方 CLI 的有效符号链接时可用；文件必须存在且可执行。
+
+「新窗口打开」启用时传入 `--new-window`，关闭时传入 `--reuse-window`；远程文件夹使用 `--folder-uri`。无需额外配置交互式登录 Shell，也不会修改全局环境变量。修改配置后重新进入插件。
 
 ### JetBrains
 

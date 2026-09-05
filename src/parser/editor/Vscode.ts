@@ -1,7 +1,7 @@
-import {existsSync} from 'fs'
+import {accessSync, constants, existsSync, realpathSync, statSync} from 'fs'
 import {readFile, stat} from 'fs/promises'
 import {isEmpty, isNil, startWith, unique, Url} from 'licia'
-import {join, normalize, parse} from 'path'
+import {isAbsolute, join, normalize, parse} from 'path'
 import {Context} from '../../Context'
 import {i18n, sentenceKey} from '../../i18n'
 import {
@@ -10,6 +10,7 @@ import {
     ApplicationImpl,
     DatetimeProjectItemImpl,
     GROUP_EDITOR,
+    InputSettingItem,
     PLATFORM_ALL,
     SettingItem,
     SettingProperties,
@@ -29,20 +30,36 @@ export class VscodeProjectItemImpl extends DatetimeProjectItemImpl {}
 
 const shellArgument = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`
 
-const resolveMacApplication = (executor: string): string | undefined => {
-    const path = normalize(executor)
-    // The bundled CLI is an intentional CLI choice, not the app's GUI binary.
-    if (path.endsWith('.app/Contents/Resources/app/bin/code')) return undefined
-    const match = path.match(/^(.+\.app)(?:\/|$)/)
-    return match?.[1]
+const isMacVscodeCli = (executor: string): boolean => {
+    if (!isAbsolute(executor)) return false
+    try {
+        const path = realpathSync(executor)
+        if (!path.endsWith('.app/Contents/Resources/app/bin/code') || !statSync(path).isFile()) return false
+        accessSync(path, constants.X_OK)
+        return true
+    } catch {
+        return false
+    }
 }
 
-const supportsWindowOptions = (executor: string, isMacOs: boolean): boolean =>
-    !isMacOs || (!isEmpty(executor) && resolveMacApplication(executor) === undefined)
+const requireMacVscodeCli = (executor: string): void => {
+    if (!isMacVscodeCli(executor)) {
+        throw new Error(`${i18n.t(sentenceKey.macVscodeCliInvalid)} ${i18n.t(sentenceKey.macVscodeCliHelp)}`)
+    }
+}
+
+const macCliSetting = (item: SettingItem): SettingItem => new InputSettingItem(
+    item.id,
+    i18n.t(sentenceKey.macVscodeCliLabel),
+    item.value as string,
+    () => [
+        !isEmpty(item.value) && !isMacVscodeCli(item.value as string) ? i18n.t(sentenceKey.macVscodeCliInvalid) : '',
+        i18n.t(sentenceKey.macVscodeCliHelp),
+    ].filter(Boolean).join(' '),
+    item.properties,
+)
 
 const macLaunchCommand = (executor: string, target: string, openInNew: boolean, remote: boolean = false): string => {
-    const application = resolveMacApplication(executor)
-    if (application) return `/usr/bin/open -a ${shellArgument(application)} ${shellArgument(target)}`
     return [shellArgument(executor), openInNew ? '--new-window' : '--reuse-window',
         ...(remote ? ['--folder-uri'] : []), shellArgument(target)].join(' ')
 }
@@ -168,12 +185,29 @@ export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl
         }
     }
 
+    override executorSettingItem(context: Context, nativeId: string): SettingItem {
+        const item = super.executorSettingItem(context, nativeId)
+        return this.isMacOs ? macCliSetting(item) : item
+    }
+
+    override async isFinishConfig(context: Context): Promise<ApplicationConfigState> {
+        if (this.enabled && this.isMacOs && !isEmpty(this.executor) && !isMacVscodeCli(this.executor)) {
+            return ApplicationConfigState.error
+        }
+        return super.isFinishConfig(context)
+    }
+
     override async isNew(): Promise<boolean> {
         const configChanged = await super.isNew()
         const signature = JSON.stringify([this.executor, this.openInNew])
         const launchChanged = signature !== this.launchSignature
         this.launchSignature = signature
         return configChanged || launchChanged
+    }
+
+    override async generateProjectItems(context: Context): Promise<Array<VscodeProjectItemImpl>> {
+        if (this.isMacOs) requireMacVscodeCli(this.executor)
+        return super.generateProjectItems(context)
     }
 
     async generateCacheProjectItems(context: Context): Promise<Array<VscodeProjectItemImpl>> {
@@ -194,12 +228,11 @@ export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl
 
     override update(nativeId: string) {
         super.update(nativeId)
-        this.openInNew = supportsWindowOptions(this.executor, this.isMacOs) && (utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false)
+        this.openInNew = utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false
     }
 
     override generateSettingItems(context: Context, nativeId: string): Array<SettingItem> {
         const superSettings = super.generateSettingItems(context, nativeId)
-        if (!supportsWindowOptions(this.executor, this.isMacOs)) return superSettings
         return [new SwitchSettingItem(
             this.openInNewId(nativeId),
             i18n.t(sentenceKey.openInNew),
@@ -273,8 +306,14 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
     override async isFinishConfig(context: Context): Promise<ApplicationConfigState> {
         if (this.disEnable()) return ApplicationConfigState.empty
         if (isEmpty(this.executor)) return ApplicationConfigState.undone
+        if (this.isMacOs && !isMacVscodeCli(this.executor)) return ApplicationConfigState.error
         if (this.databasePaths().some(path => existsSync(path))) return ApplicationConfigState.done
         return isEmpty(this.config) ? ApplicationConfigState.undone : ApplicationConfigState.error
+    }
+
+    override executorSettingItem(context: Context, nativeId: string): SettingItem {
+        const item = super.executorSettingItem(context, nativeId)
+        return this.isMacOs ? macCliSetting(item) : item
     }
 
     override async isNew(): Promise<boolean> {
@@ -296,6 +335,11 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
         this.hasLoadedDatabase = true
         this.databaseSignature = signature
         return changed
+    }
+
+    override async generateProjectItems(context: Context): Promise<Array<VscodeProjectItemImpl>> {
+        if (this.isMacOs) requireMacVscodeCli(this.executor)
+        return super.generateProjectItems(context)
     }
 
     async generateCacheProjectItems(context: Context): Promise<Array<VscodeProjectItemImpl>> {
@@ -330,26 +374,23 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
 
     override update(nativeId: string) {
         super.update(nativeId)
-        this.openInNew = supportsWindowOptions(this.executor, this.isMacOs) && (utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false)
+        this.openInNew = utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false
         this.sortByAccessTime = utools.dbStorage.getItem(this.sortByAccessTimeId(nativeId)) ?? false
     }
 
     override generateSettingItems(context: Context, nativeId: string): Array<SettingItem> {
         const superSettings = super.generateSettingItems(context, nativeId)
         const applicationSettings: SettingItem[] = [new SwitchSettingItem(
+            this.openInNewId(nativeId),
+            i18n.t(sentenceKey.openInNew),
+            this.openInNew,
+            i18n.t(this.isMacOs ? sentenceKey.macVscodeOpenInNewDesc : sentenceKey.openInNewDesc),
+        ), new SwitchSettingItem(
             this.sortByAccessTimeId(nativeId),
             i18n.t(sentenceKey.sortByAccessTime),
             this.sortByAccessTime,
             i18n.t(sentenceKey.sortByAccessTimeDesc),
         )]
-        if (supportsWindowOptions(this.executor, this.isMacOs)) {
-            applicationSettings.unshift(new SwitchSettingItem(
-                this.openInNewId(nativeId),
-                i18n.t(sentenceKey.openInNew),
-                this.openInNew,
-                i18n.t(this.isMacOs ? sentenceKey.macVscodeOpenInNewDesc : sentenceKey.openInNewDesc),
-            ))
-        }
         return [...applicationSettings, ...superSettings]
     }
 }

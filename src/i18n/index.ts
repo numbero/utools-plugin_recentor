@@ -73,6 +73,9 @@ export const sentenceKey = {
     openInNew: 'openInNew',
     openInNewDesc: 'openInNewDesc',
     macVscodeOpenInNewDesc: 'macVscodeOpenInNewDesc',
+    macVscodeCliLabel: 'macVscodeCliLabel',
+    macVscodeCliHelp: 'macVscodeCliHelp',
+    macVscodeCliInvalid: 'macVscodeCliInvalid',
     outPluginImmediately: 'outPluginImmediately',
     outPluginImmediatelyDesc: 'outPluginImmediatelyDesc',
     pathNotFound: 'pathNotFound',
@@ -185,6 +188,9 @@ export interface Sentence {
     readonly openInNew: string
     readonly openInNewDesc: string
     readonly macVscodeOpenInNewDesc: string
+    readonly macVscodeCliLabel: string
+    readonly macVscodeCliHelp: string
+    readonly macVscodeCliInvalid: string
     readonly outPluginImmediately: string
     readonly outPluginImmediatelyDesc: string
     readonly pathNotFound: string
