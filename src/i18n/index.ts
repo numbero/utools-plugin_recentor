@@ -72,6 +72,7 @@ export const sentenceKey = {
     notifyFileOpenDesc: 'notifyFileOpenDesc',
     openInNew: 'openInNew',
     openInNewDesc: 'openInNewDesc',
+    macVscodeOpenInNewDesc: 'macVscodeOpenInNewDesc',
     outPluginImmediately: 'outPluginImmediately',
     outPluginImmediatelyDesc: 'outPluginImmediatelyDesc',
     pathNotFound: 'pathNotFound',
@@ -183,6 +184,7 @@ export interface Sentence {
     readonly notifyFileOpenDesc: string
     readonly openInNew: string
     readonly openInNewDesc: string
+    readonly macVscodeOpenInNewDesc: string
     readonly outPluginImmediately: string
     readonly outPluginImmediatelyDesc: string
     readonly pathNotFound: string

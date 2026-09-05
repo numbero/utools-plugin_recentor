@@ -69,6 +69,7 @@ export class EnUs implements Sentence {
     readonly notifyFileOpenDesc: string = 'Enable this option, The system notification is pop-up when the project is turned on, and some software opens the project requires a certain startup time, which is intended to help the user confirm the operating status of the plugin.'
     readonly openInNew: string = 'Open In New Window'
     readonly openInNewDesc: string = 'Always open in new window if target is folder'
+    readonly macVscodeOpenInNewDesc: string = 'Use the VS Code CLI to open a new window when enabled, or reuse the last active window when disabled. A window is created if none is open.'
     readonly outPluginImmediately: string = 'Out plugin after open project'
     readonly outPluginImmediatelyDesc: string = 'Enable this option could let you do any uTools\' behavior after open a project conveniently. If you would like to open multi projects continuously, you can disable this option.'
     readonly pathNotFound: string = 'Path not found'

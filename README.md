@@ -94,6 +94,13 @@ Visual Studio Code 的历史记录位置随版本变化：
 
 插件会优先读取新的共享数据库，并自动回退到已配置路径和旧版数据库。使用 `--shared-data-dir` 指定过自定义共享目录的用户，仍可在插件设置中手动选择对应的 `state.vscdb`。相关变更可参考 [VS Code 工作区历史实现](https://github.com/microsoft/vscode/blob/main/src/vs/platform/workspaces/electron-main/workspacesHistoryMainService.ts) 和 [上游兼容性问题说明](https://github.com/microsoft/PowerToys/issues/47445)。
 
+macOS 上，可执行程序路径决定启动方式：
+
+- `/Applications/Visual Studio Code.app`：使用普通 `open -a`，窗口行为由 VS Code 决定，因此不显示「新窗口打开」选项。旧配置指向 `Contents/MacOS/Code` 时也使用此兼容方式。
+- `/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code` 或已安装的 `/usr/local/bin/code`：使用官方 CLI。「新窗口打开」启用时传入 `--new-window`，关闭时传入 `--reuse-window`；远程文件夹使用 `--folder-uri`。
+
+CLI 不依赖交互式登录 Shell，也不会修改全局环境变量。如果 CLI 在当前系统上仍出现启动错误，可把路径改为 `.app` 保留本地项目的兼容启动方式，无需重装或修改应用签名。修改配置后重新进入插件。
+
 ### JetBrains
 
 如果使用 JetBrains Toolbox 安装的话，默认路径会在类似`C:\Users\用户名\AppData\Local\JetBrains\Toolbox\apps\软件名\ch-0\版本号`，具体的可以在 JetBrains
