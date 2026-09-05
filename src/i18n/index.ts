@@ -3,6 +3,22 @@ import {EnUs} from './EnUs'
 import {ZhCn} from './ZhCn'
 
 export const sentenceKey = {
+    claudeDescription: 'claudeDescription',
+    claudeDirectory: 'claudeDirectory',
+    claudeDirectoryHint: 'claudeDirectoryHint',
+    claudeDirectoryError: 'claudeDirectoryError',
+    claudePartial: 'claudePartial',
+    claudeUnnamed: 'claudeUnnamed',
+    claudeUnknownPath: 'claudeUnknownPath',
+    claudeCopied: 'claudeCopied',
+    claudeCopyFailed: 'claudeCopyFailed',
+    claudeSearch: 'claudeSearch',
+    claudeEmpty: 'claudeEmpty',
+    claudeNoMatch: 'claudeNoMatch',
+    claudeLoading: 'claudeLoading',
+    claudeEnable: 'claudeEnable',
+    claudeSettingsHint: 'claudeSettingsHint',
+
     auto: 'auto',
     beta: 'beta',
     betaDesc: 'betaDesc',
@@ -119,6 +135,22 @@ export const sentenceKey = {
 }
 
 export interface Sentence {
+    readonly claudeDescription: string
+    readonly claudeDirectory: string
+    readonly claudeDirectoryHint: string
+    readonly claudeDirectoryError: string
+    readonly claudePartial: string
+    readonly claudeUnnamed: string
+    readonly claudeUnknownPath: string
+    readonly claudeCopied: string
+    readonly claudeCopyFailed: string
+    readonly claudeSearch: string
+    readonly claudeEmpty: string
+    readonly claudeNoMatch: string
+    readonly claudeLoading: string
+    readonly claudeEnable: string
+    readonly claudeSettingsHint: string
+
     readonly auto: string
     readonly beta: string
     readonly betaDesc: string

@@ -1,3 +1,4 @@
+import {ClaudeArgs} from './parser/claude/ClaudeArgs'
 import {contain} from 'licia'
 import {AllProjectArgs, AllProjectSortByTimeArgs, AllProjectSortByTitleArgs} from './Entrance'
 import {applications as ChromiumBookmarkApplications} from './parser/browser/bookmark/Chromium'
@@ -36,6 +37,7 @@ export class ProjectFeature implements Feature<ProjectArgsImpl> {
 }
 
 export const argsMapping: { [keys: string]: ProjectFeature } = {
+    'claude-sessions': new ProjectFeature(new ClaudeArgs()),
     'jetbrains-project': new ProjectFeature(new AllProjectSortByTimeArgs(jetBrainsApplications)),
     'android-studio-project': new ProjectFeature(new AllProjectSortByTimeArgs(androidStudioApplications)),
     'vscode-project': new ProjectFeature(new AllProjectSortByTimeArgs(vscodeApplications)),

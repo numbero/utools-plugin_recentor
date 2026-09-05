@@ -1,6 +1,22 @@
 import {Sentence} from './index'
 
 export class EnUs implements Sentence {
+    readonly claudeDescription: string = "Find local Claude Code sessions and press Enter to copy the Session ID."
+    readonly claudeDirectory: string = "Claude Code data directory"
+    readonly claudeDirectoryHint: string = "Leave blank to use CLAUDE_CONFIG_DIR or the default directory:"
+    readonly claudeDirectoryError: string = "Cannot read Claude sessions. Check the data directory and read permissions."
+    readonly claudePartial: string = "Some Claude session records could not be loaded."
+    readonly claudeUnnamed: string = "Untitled session"
+    readonly claudeUnknownPath: string = "Unknown project path"
+    readonly claudeCopied: string = "Session ID copied"
+    readonly claudeCopyFailed: string = "Failed to copy Session ID"
+    readonly claudeSearch: string = "Search project paths or session titles (multiple keywords supported)"
+    readonly claudeEmpty: string = "No Claude Code sessions"
+    readonly claudeNoMatch: string = "No matching Claude Code sessions"
+    readonly claudeLoading: string = "Loading Claude Code sessions…"
+    readonly claudeEnable: string = "Enable Claude Code first"
+    readonly claudeSettingsHint: string = "Press Enter to configure Claude Code in the Editor group."
+
     readonly auto: string = 'Auto'
     readonly beta: string = 'Beta'
     readonly betaDesc: string = `beta means that this adaption\nis in preview version\nI can't test all the use scenes\nI need you submit the feedback \nwhen you meet some error`

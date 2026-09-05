@@ -1,6 +1,22 @@
 import {Sentence} from './index'
 
 export class ZhCn implements Sentence {
+    readonly claudeDescription: string = "查找本地 Claude Code 主会话，按回车复制 Session ID。"
+    readonly claudeDirectory: string = "Claude Code 数据目录"
+    readonly claudeDirectoryHint: string = "留空使用环境变量 CLAUDE_CONFIG_DIR 或默认目录："
+    readonly claudeDirectoryError: string = "无法读取 Claude 会话目录，请检查数据目录配置与读取权限"
+    readonly claudePartial: string = "部分 Claude 会话记录无法加载"
+    readonly claudeUnnamed: string = "未命名会话"
+    readonly claudeUnknownPath: string = "项目路径未知"
+    readonly claudeCopied: string = "Session ID 已复制"
+    readonly claudeCopyFailed: string = "Session ID 复制失败"
+    readonly claudeSearch: string = "搜索项目路径或会话标题（支持多个关键词）"
+    readonly claudeEmpty: string = "暂无 Claude Code 会话"
+    readonly claudeNoMatch: string = "没有匹配的 Claude Code 会话"
+    readonly claudeLoading: string = "正在读取 Claude Code 会话…"
+    readonly claudeEnable: string = "请先启用 Claude Code"
+    readonly claudeSettingsHint: string = "按回车进入设置，在 Editor 分组配置 Claude Code"
+
     readonly auto: string = '自动'
     readonly beta: string = '测试'
     readonly betaDesc: string = `beta 意味着这个功能处于试验阶段\n但我无法测试所有使用场景\n需要你在遇到无法正常使用的时候积极向我反馈`

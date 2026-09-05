@@ -440,6 +440,14 @@
         "Shortcuts",
         "最近打开的 Shortcut (快捷指令)"
       ]
+    },
+    {
+      "code": "claude-sessions",
+      "explain": "查找 Claude Code 会话并复制 Session ID",
+      "icon": "icon/claude.png",
+      "cmds": [
+        "claude"
+      ]
     }
   ]
 }
