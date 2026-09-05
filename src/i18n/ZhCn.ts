@@ -69,6 +69,7 @@ export class ZhCn implements Sentence {
     readonly notifyFileOpenDesc: string = '启动该选项会在打开项目时弹出系统通知，部分软件打开项目需要一定的启动时间，该设置旨在帮助用户确认插件的运行状态'
     readonly openInNew: string = '新窗口打开'
     readonly openInNewDesc: string = '如果打开的是文件夹，无论是否打开该选项，都将在新窗口打开'
+    readonly macVscodeOpenInNewDesc: string = '通过 VS Code CLI 打开：启用时新建窗口，关闭时复用最近活动的窗口；没有窗口时会新建窗口'
     readonly outPluginImmediately: string = '打开项目后立即退出插件'
     readonly outPluginImmediatelyDesc: string = '启动改选项可以方便在打开项目后马上开始其他 uTools 操作，而无需再次退出本插件，如果你需要连续打开多个项目，也可以关闭该选项'
     readonly pathNotFound: string = '文件不存在'

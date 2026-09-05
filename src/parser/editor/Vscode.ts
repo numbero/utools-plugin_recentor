@@ -27,7 +27,27 @@ const HOMEPAGE: string = 'https://code.visualstudio.com/'
 
 export class VscodeProjectItemImpl extends DatetimeProjectItemImpl {}
 
-const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindows: boolean, icon: string, executor: string, sortByAccessTime: boolean | undefined) => Promise<Array<VscodeProjectItemImpl>> = async (entries, context, openInNew, isWindows, defaultIcon, executor, sortByAccessTime) => {
+const shellArgument = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`
+
+const resolveMacApplication = (executor: string): string | undefined => {
+    const path = normalize(executor)
+    // The bundled CLI is an intentional CLI choice, not the app's GUI binary.
+    if (path.endsWith('.app/Contents/Resources/app/bin/code')) return undefined
+    const match = path.match(/^(.+\.app)(?:\/|$)/)
+    return match?.[1]
+}
+
+const supportsWindowOptions = (executor: string, isMacOs: boolean): boolean =>
+    !isMacOs || (!isEmpty(executor) && resolveMacApplication(executor) === undefined)
+
+const macLaunchCommand = (executor: string, target: string, openInNew: boolean, remote: boolean = false): string => {
+    const application = resolveMacApplication(executor)
+    if (application) return `/usr/bin/open -a ${shellArgument(application)} ${shellArgument(target)}`
+    return [shellArgument(executor), openInNew ? '--new-window' : '--reuse-window',
+        ...(remote ? ['--folder-uri'] : []), shellArgument(target)].join(' ')
+}
+
+const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindows: boolean, isMacOs: boolean, icon: string, executor: string, sortByAccessTime: boolean | undefined) => Promise<Array<VscodeProjectItemImpl>> = async (entries, context, openInNew, isWindows, isMacOs, defaultIcon, executor, sortByAccessTime) => {
     let items: Array<VscodeProjectItemImpl> = []
     if (!isNil(entries)) {
         let args = openInNew ? '-n' : ''
@@ -62,14 +82,18 @@ const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindo
                 icon: context.enableGetFileIcon ? utools.getFileIcon(path) : defaultIcon,
             })
 
-            let commandText = `"${executor}" ${args} "${path}"`
+            let commandText = isMacOs
+                ? macLaunchCommand(executor, path, openInNew)
+                : `"${executor}" ${args} "${path}"`
 
             // 对 remote folder 进行处理
             if (startWith(uri, 'vscode-remote')) {
                 let label = element['label'] ?? uriParsed
                 exists = true
                 description = label
-                commandText = `"${executor}" --folder-uri "${uriParsed}"`
+                commandText = isMacOs
+                    ? macLaunchCommand(executor, uriParsed, openInNew, true)
+                    : `"${executor}" --folder-uri "${uriParsed}"`
             }
 
             let accessTime = 0
@@ -103,6 +127,8 @@ const parseEntries: (entries: any, context: Context, openInNew: boolean, isWindo
 export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl<VscodeProjectItemImpl> {
     private openInNew: boolean = false
     private isWindows: boolean = utools.isWindows()
+    private isMacOs: boolean = utools.isMacOS()
+    private launchSignature: string = ''
 
     constructor() {
         super(
@@ -142,6 +168,14 @@ export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl
         }
     }
 
+    override async isNew(): Promise<boolean> {
+        const configChanged = await super.isNew()
+        const signature = JSON.stringify([this.executor, this.openInNew])
+        const launchChanged = signature !== this.launchSignature
+        this.launchSignature = signature
+        return configChanged || launchChanged
+    }
+
     async generateCacheProjectItems(context: Context): Promise<Array<VscodeProjectItemImpl>> {
         let items: Array<VscodeProjectItemImpl> = []
         let buffer = await readFile(this.config)
@@ -149,7 +183,7 @@ export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl
             let content = buffer.toString()
             let storage = JSON.parse(content)
             let entries = storage?.openedPathsList?.entries
-            items.push(...(await parseEntries(entries, context, this.openInNew, this.isWindows, this.icon, this.executor, undefined)))
+            items.push(...(await parseEntries(entries, context, this.openInNew, this.isWindows, this.isMacOs, this.icon, this.executor, undefined)))
         }
         return items
     }
@@ -160,18 +194,18 @@ export class VscodeApplicationImpl extends ApplicationCacheConfigAndExecutorImpl
 
     override update(nativeId: string) {
         super.update(nativeId)
-        this.openInNew = utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false
+        this.openInNew = supportsWindowOptions(this.executor, this.isMacOs) && (utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false)
     }
 
     override generateSettingItems(context: Context, nativeId: string): Array<SettingItem> {
-        let superSettings = super.generateSettingItems(context, nativeId)
-        superSettings.splice(0, 0, new SwitchSettingItem(
+        const superSettings = super.generateSettingItems(context, nativeId)
+        if (!supportsWindowOptions(this.executor, this.isMacOs)) return superSettings
+        return [new SwitchSettingItem(
             this.openInNewId(nativeId),
             i18n.t(sentenceKey.openInNew),
             this.openInNew,
-            i18n.t(sentenceKey.openInNewDesc),
-        ))
-        return superSettings
+            i18n.t(this.isMacOs ? sentenceKey.macVscodeOpenInNewDesc : sentenceKey.openInNewDesc),
+        ), ...superSettings]
     }
 }
 
@@ -179,6 +213,7 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
     private openInNew: boolean = false
     private sortByAccessTime: boolean = false
     private isWindows: boolean = utools.isWindows()
+    private isMacOs: boolean = utools.isMacOS()
     private databaseSignature: string = ''
     private hasLoadedDatabase: boolean = false
 
@@ -251,7 +286,12 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
                 return `${path}:missing`
             }
         }))
-        const signature = signatures.join('|')
+        const signature = [
+            ...signatures,
+            `executor:${this.executor}`,
+            `openInNew:${this.openInNew}`,
+            `sortByAccessTime:${this.sortByAccessTime}`,
+        ].join('|')
         const changed = !this.hasLoadedDatabase || signature !== this.databaseSignature
         this.hasLoadedDatabase = true
         this.databaseSignature = signature
@@ -269,7 +309,7 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
                     let row = results[0]
                     let source = row['result'] as string
                     if (!isEmpty(source)) {
-                        return await parseEntries(JSON.parse(source)['entries'], context, this.openInNew, this.isWindows, this.icon, this.executor, this.sortByAccessTime)
+                        return await parseEntries(JSON.parse(source)['entries'], context, this.openInNew, this.isWindows, this.isMacOs, this.icon, this.executor, this.sortByAccessTime)
                     }
                 }
             } catch (error) {
@@ -290,25 +330,27 @@ export class Vscode1640ApplicationImpl extends ApplicationCacheConfigAndExecutor
 
     override update(nativeId: string) {
         super.update(nativeId)
-        this.openInNew = utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false
+        this.openInNew = supportsWindowOptions(this.executor, this.isMacOs) && (utools.dbStorage.getItem(this.openInNewId(nativeId)) ?? false)
         this.sortByAccessTime = utools.dbStorage.getItem(this.sortByAccessTimeId(nativeId)) ?? false
     }
 
     override generateSettingItems(context: Context, nativeId: string): Array<SettingItem> {
-        let superSettings = super.generateSettingItems(context, nativeId)
-        superSettings.splice(0, 0, new SwitchSettingItem(
-            this.openInNewId(nativeId),
-            i18n.t(sentenceKey.openInNew),
-            this.openInNew,
-            i18n.t(sentenceKey.openInNewDesc),
-        ))
-        superSettings.splice(1, 0, new SwitchSettingItem(
+        const superSettings = super.generateSettingItems(context, nativeId)
+        const applicationSettings: SettingItem[] = [new SwitchSettingItem(
             this.sortByAccessTimeId(nativeId),
             i18n.t(sentenceKey.sortByAccessTime),
             this.sortByAccessTime,
             i18n.t(sentenceKey.sortByAccessTimeDesc),
-        ))
-        return superSettings
+        )]
+        if (supportsWindowOptions(this.executor, this.isMacOs)) {
+            applicationSettings.unshift(new SwitchSettingItem(
+                this.openInNewId(nativeId),
+                i18n.t(sentenceKey.openInNew),
+                this.openInNew,
+                i18n.t(this.isMacOs ? sentenceKey.macVscodeOpenInNewDesc : sentenceKey.openInNewDesc),
+            ))
+        }
+        return [...applicationSettings, ...superSettings]
     }
 }
 
